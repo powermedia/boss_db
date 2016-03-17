@@ -446,11 +446,15 @@ get_attributes_forms(ModuleName, Parameters) ->
 
 set_attributes_forms(ModuleName, Parameters) ->
     [erl_syntax:add_precomments([erl_syntax:comment(
-                    ["% @spec set([{Attribute::atom(), Value}]) -> "++inflector:camelize(atom_to_list(ModuleName)),
+                    ["% @spec set([{Attribute::atom(), Value}] | #{Attribute::atom() => Value}) -> "++inflector:camelize(atom_to_list(ModuleName)),
                         "% @doc Set multiple record attributes at once. Does not save the record."])],
             erl_syntax:function(
                 erl_syntax:atom(set),
-                [erl_syntax:clause([erl_syntax:variable("AttributeProplist")], none,
+                [erl_syntax:clause([erl_syntax:variable("AttributeProplist")],
+                    [erl_syntax:application(
+                        erl_syntax:atom(erlang),
+                        erl_syntax:atom(is_list),
+                        [erl_syntax:variable("AttributeProplist")])],
                         [erl_syntax:application(
                                 erl_syntax:atom(ModuleName),
                                 erl_syntax:atom(new),
@@ -461,7 +465,25 @@ set_attributes_forms(ModuleName, Parameters) ->
                                                 [erl_syntax:atom(parameter_to_colname(P)),
                                                     erl_syntax:variable("AttributeProplist"),
                                                     erl_syntax:variable(P)])
-                                    end, Parameters))])])),
+                                    end, Parameters))]),
+                    erl_syntax:clause([erl_syntax:variable("AttributeMap")],
+                        [erl_syntax:application(
+                            erl_syntax:atom(erlang),
+                            erl_syntax:atom(is_map),
+                            [erl_syntax:variable("AttributeMap")])],
+                        [erl_syntax:application(
+                            erl_syntax:atom(ModuleName),
+                            erl_syntax:atom(new),
+                            lists:map(fun(P) ->
+                                erl_syntax:application(
+                                    erl_syntax:atom(maps),
+                                    erl_syntax:atom(get),
+                                    [erl_syntax:atom(parameter_to_colname(P)),
+                                        erl_syntax:variable("AttributeMap"),
+                                        erl_syntax:variable(P)])
+                                      end, Parameters))])
+                ])),
+
     erl_syntax:add_precomments([erl_syntax:comment(
                 ["% @spec set(Attribute::atom(), NewValue::any()) -> "++inflector:camelize(atom_to_list(ModuleName)),
                         "% @doc Set the value of a particular attribute. Does not save the record."])],
